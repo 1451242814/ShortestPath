@@ -5,9 +5,17 @@
 #include <cstring>
 #include <list>
 #include <vector>
+#include <heap.h>
+
 
 using namespace std;
 using namespace __gnu_cxx;
+
+
+/////Test
+
+
+///////
 
 struct Edge
 {
@@ -19,13 +27,13 @@ struct Edge
 struct Vertex
 {
     int id;
+    float dis;
     list<Edge> edgeList;
 };
 
 class Graph
 {
 private:
-    int _verNum=0;
     hash_map<int,int> _verTb;
     void genVer(ifstream & verfs)
     {
@@ -35,7 +43,7 @@ private:
         {
 
            verfs>>key;
-           verfs.ignore();
+           verfs.ignore(1024,'\n');
            ver.id=key;
            _ver.push_back(ver);
            _verTb[key]=_verNum;
@@ -65,21 +73,83 @@ private:
 
             verLs[_verTb[startNode]].edgeList.push_front(edg);
 
-            edgefs.ignore();
+            edgefs.ignore(1024,'\n');
         }
     }
 
 public:
+    const static float MAX_DIS;
+    int _verNum;
     vector<Vertex> _ver;
-    Graph(ifstream &verfs,ifstream &edgefs)
+    Graph(ifstream &verfs,ifstream &edgefs):_verNum(0)
     {
        genVer(verfs);
 
        genEdgeList(_ver,edgefs);
     }
-    int findDisPath(int start,int end,vector<vector<int>> & path);
+    int findDisPath(int start, int end,hash_map<int,int> &path);
     int findTimPath(int start,int end,vector<vector<int>> & path);
 };
+
+const float Graph::MAX_DIS=1e10;
+
+struct Node
+{
+    Vertex *ver;
+
+    Node(int _dis)
+    {
+        ver->dis=_dis;
+    }
+
+    Node()
+    {
+    }
+
+    bool operator <(const Node &node)
+    {
+        return this->ver->dis<node.ver->dis;
+    }
+};
+
+int Graph::findDisPath(int start,int end,hash_map<int,int> &path)
+{
+    Node set[_verNum];//保存已经探索到的节点
+    Node heapArray[_verNum];//堆操作的数组
+    int setPos=0;//保存已经探索的节点在数组中的位置
+
+    for(int i;i<_verNum;i++)
+    {
+        heapArray[i].ver=&_ver[i];
+        heapArray[i].ver->dis=Graph::MAX_DIS;
+    }
+
+    heapArray[_verTb[start]].ver->dis=0;
+
+    Heap<Node> heap(heapArray,_verNum);
+
+    Node t;
+    float newDis;
+    int endNode;
+    while(heap.empty()==false)
+    {
+       t=heap.extractMin();
+       for(auto iter:t.ver->edgeList)
+       {
+           newDis=iter.len+t.ver->dis;
+           endNode=_verTb[iter.endID];
+           if(newDis<_ver[endNode].dis)
+           {
+               _ver[endNode].dis=newDis;
+              // heap.decreaseKey(_ver[endNode]});
+               path[iter.endID]=t.ver->id;
+           }
+           set[setPos++]=t;
+       }
+    }
+    return _ver[_verTb[end]].dis;
+
+}
 
 void genTb(hash_map<int,int> &verTb,const string &fname)
 {
@@ -127,6 +197,11 @@ int main(int argc,char *argv[])
 
     Graph map(verfs,edgfs);
 
-    cout<<map._ver[0].id<<'\t'<<map._ver[0].edgeList.front().len;
+
+    hash_map<int,int> path;
+    int start,end;
+    cin>>start>>end;
+    cout<<map.findDisPath(start,end,path);
+
     return 0;
 }
