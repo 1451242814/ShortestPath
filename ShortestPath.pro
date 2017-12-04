@@ -3,8 +3,12 @@ CONFIG += console c++11
 CONFIG -= app_bundle
 CONFIG -= qt
 
-SOURCES += main.cpp
+SOURCES += main.cpp \
+    heap.cpp
 
 DISTFILES += \
     sfo_nodes.txt \
     sfo_roads.txt
+
+HEADERS += \
+    heap.h
