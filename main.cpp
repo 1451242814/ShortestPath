@@ -1,21 +1,16 @@
 #include <iostream>
 #include <fstream>
-#include <hash_map>
 #include <string>
 #include <cstring>
 #include <list>
 #include <vector>
-#include <heap.h>
+#include "heap.h"
+#include <unordered_map>
 
 
 using namespace std;
-using namespace __gnu_cxx;
 
 
-/////Test
-
-
-///////
 
 struct Edge
 {
@@ -34,7 +29,7 @@ struct Vertex
 class Graph
 {
 private:
-    hash_map<int,int> _verTb;
+    unordered_map<int,int> _verTb;
     void genVer(ifstream & verfs)
     {
         int key;
@@ -79,6 +74,7 @@ private:
 
 public:
     const static float MAX_DIS;
+	const static float MAX_TIM;
     int _verNum;
     vector<Vertex> _ver;
     Graph(ifstream &verfs,ifstream &edgefs):_verNum(0)
@@ -87,22 +83,23 @@ public:
 
        genEdgeList(_ver,edgefs);
     }
-    int findDisPath(int start, int end,hash_map<int,int> &path);
-    int findTimPath(int start,int end,vector<vector<int>> & path);
+    float findDisPath(int start, int end,unordered_map<int,int> &path,unordered_map<int,float> &time);
 };
 
 const float Graph::MAX_DIS=1e10;
+const float Graph::MAX_TIM = 1e10;
 
 struct Node
 {
     Vertex *ver;
+    int index;
 
-    Node(int _dis)
+    Node(float _dis)
     {
         ver->dis=_dis;
     }
 
-    Node()
+    Node():ver(NULL)
     {
     }
 
@@ -112,18 +109,20 @@ struct Node
     }
 };
 
-int Graph::findDisPath(int start,int end,hash_map<int,int> &path)
+float Graph::findDisPath(int start,int end,unordered_map<int,int> &path,unordered_map<int,float> &time)
 {
-    Node set[_verNum];//保存已经探索到的节点
-    Node heapArray[_verNum];//堆操作的数组
-    int setPos=0;//保存已经探索的节点在数组中的位置
+    bool *visited=new bool[_verNum];//保存已经探索到的节点
+    Node *heapArray=new Node[_verNum];//堆操作的数组
 
-    for(int i;i<_verNum;i++)
+    for(int i=0;i<_verNum;i++)
     {
         heapArray[i].ver=&_ver[i];
         heapArray[i].ver->dis=Graph::MAX_DIS;
+        heapArray[i].index=i;
+		visited[i] = false;
     }
 
+    int startnode=_verTb[start]    ;
     heapArray[_verTb[start]].ver->dis=0;
 
     Heap<Node> heap(heapArray,_verNum);
@@ -131,6 +130,7 @@ int Graph::findDisPath(int start,int end,hash_map<int,int> &path)
     Node t;
     float newDis;
     int endNode;
+	time[start] = 0.0;
     while(heap.empty()==false)
     {
        t=heap.extractMin();
@@ -138,70 +138,83 @@ int Graph::findDisPath(int start,int end,hash_map<int,int> &path)
        {
            newDis=iter.len+t.ver->dis;
            endNode=_verTb[iter.endID];
-           if(newDis<_ver[endNode].dis)
+           if(visited[endNode] == false && newDis<_ver[endNode].dis)
            {
-               _ver[endNode].dis=newDis;
-              // heap.decreaseKey(_ver[endNode]});
+               heap.decDis(endNode,newDis);
                path[iter.endID]=t.ver->id;
+			   time[iter.endID] = iter.len / iter.speed + time[t.ver->id];
            }
-           set[setPos++]=t;
        }
+       visited[_verTb[t.ver->id]]=true;
     }
-    return _ver[_verTb[end]].dis;
+	delete[] heapArray;
+	delete[] visited;
+	return _ver[_verTb[end]].dis;
 
 }
 
-void genTb(hash_map<int,int> &verTb,const string &fname)
+void printPath(int start,int end,unordered_map<int, int> & path)
 {
-     ifstream fs;
-     fs.open(fname.c_str());
-     if(fs.fail())
-     {
-         cout<<"Open vertex file failed!"<<endl;
-         return;
-     }
-     string s;
-     int verNum=0;
-     int key;
-     while(fs)
-     {
-        fs>>s;
-        key=atoi(s.c_str());
-        verTb[key]=verNum;
-        verNum+=1;
-     }
-     return ;
+	if (end != start)
+	{
+		printPath(start, path[end], path);
+		cout << "->" << end;
+	}
+	else
+		cout << end;
 
 }
 
-int main(int argc,char *argv[])
+
+int main(int argcc,char *argvv[])
 {
-    const string verfname="D:\\Qt\\build\\ShortestPath\\sfo_nodes.txt";
-    const string edgfname="D:\\Qt\\build\\ShortestPath\\sfo_roads.txt";
+	int argc = 5;
+	char argv[][100] = {" ",
+		"D:\\Qt\\build\\ShortestPath\\sfo_roads.txt",
+		"D:\\Qt\\build\\ShortestPath\\sfo_nodes.txt",
+		"984478356",
+		"48531353"
+	};
+
+	if (argc != 5)
+	{
+		cerr << "Wrong parameter!" << endl;
+		return 1;
+	}
+	const char* verfname = argv[2];
+	const char* edgfname = argv[1];
 
     ifstream verfs,edgfs;
-    verfs.open(verfname.c_str());
+    verfs.open(verfname);
 
     if(verfs.fail())
     {
-        cout<<"Open vertex file failed!"<<endl;
+        cerr<<"Open vertex file failed!"<<endl;
         return 1;
     }
 
-    edgfs.open(edgfname.c_str());
+    edgfs.open(edgfname);
     if(edgfs.fail())
     {
-        cout<<"Open edge file failed! "<<endl;
+        cerr<<"Open edge file failed! "<<endl;
         return 1;
     }
 
     Graph map(verfs,edgfs);
 
-
-    hash_map<int,int> path;
+    unordered_map<int,int> path;
+	unordered_map<int, float> time;
     int start,end;
-    cin>>start>>end;
-    cout<<map.findDisPath(start,end,path);
+//    cin>>start>>end;
+    start=atoi(argv[3]);
+    end=atoi(argv[4]);
+    float minDis=map.findDisPath(start,end,path,time);
+	cout << "Min Distance: " << minDis << endl;
+	cout << "Path node ID: ";
+	printPath(start, end, path);
+	cout << endl << "Time used: " << time[end] << endl;
 
+
+	system("pause");
     return 0;
 }

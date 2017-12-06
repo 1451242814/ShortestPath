@@ -1,5 +1,7 @@
 #ifndef HEAP_H
 #define HEAP_H
+#include <algorithm>
+
 
 
 template<class T>
@@ -7,6 +9,17 @@ class Heap {
 private:
     int len;
     T *root;
+    void decreaseDis(T *node,float dis)
+    {
+        node->ver->dis=dis;
+        T t;
+        while(node!=root && *node<*parent(node))
+        {
+            std::swap(rawTb[(*node).index],rawTb[(*parent(node)).index]);
+            std::swap(*node,*parent(node));
+            node=parent(node);
+        }
+    }
     void heapfy(T *ch)
     {
         if(ch-root==len)
@@ -17,9 +30,8 @@ private:
             less=right(ch);
         if(*less<*ch)
         {
-            T t=*ch;
-            *ch=*less;
-            *less=t;
+            std::swap(rawTb[(*less).index],rawTb[(*ch).index]);
+            std::swap(*less,*ch);
             if(less-root<len/2-1)
                 heapfy(less);
         }
@@ -34,11 +46,22 @@ private:
     }
 public:
 
+    //Using a raw table to build a map from raw index to new index on heap
+
+    int *rawTb;
 
     Heap(T* r,int n):
         len(n),root(r)
     {
-    build(r);
+        rawTb=new int[len];
+        for(int i=0;i<n;i++)
+            rawTb[i]=i;
+        build(r);
+    }
+
+    ~Heap()
+    {
+        delete [] rawTb;
     }
 
     T *right(T * ch)
@@ -79,17 +102,11 @@ public:
             p=parent(p);
         }
     }
-    void decreaseKey(T *node,int key)
+    void decDis(int index,float dis)
     {
-        *node=key;
-        T t;
-        while(*node<*parent(node))
-        {
-            t=*node;
-            *node=*parent(node);
-            *parent(node)=t;
-        }
+        decreaseDis(&root[rawTb[index]],dis);
     }
+
     bool empty() const
     {
         return len<1;
