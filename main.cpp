@@ -2,19 +2,18 @@
 #include <fstream>
 #include <string>
 #include <cstring>
-#include <list>
 #include <vector>
-#include "heap.h"
+#include <list>
 #include <unordered_map>
+#include <queue>
+#include "heap.h"
 
 
 using namespace std;
 
-
-
 struct Edge
 {
-    int endID;
+    int endVer;
     float len;
     float speed;
 };
@@ -22,14 +21,14 @@ struct Edge
 struct Vertex
 {
     int id;
-    float dis;
+	float dis;
     list<Edge> edgeList;
 };
 
 class Graph
 {
 private:
-    unordered_map<int,int> _verTb;
+    unordered_map<int,int> _verTb;//建立一个从顶点id到顶点数组索引的映射
     void genVer(ifstream & verfs)
     {
         int key;
@@ -40,6 +39,7 @@ private:
            verfs>>key;
            verfs.ignore(1024,'\n');
            ver.id=key;
+		   ver.dis = Graph::MAX_DIS;
            _ver.push_back(ver);
            _verTb[key]=_verNum;
            _verNum+=1;
@@ -47,18 +47,18 @@ private:
     }
     void genEdgeList(vector<Vertex> &verLs,ifstream &edgefs)
     {
-        int startNode;
-        int endNode;
+        int start;
+        int end;
         Edge edg;
 
         while(edgefs)
         {
             edgefs.ignore(20,':');
-            edgefs>>startNode;
+            edgefs>>start;
 
             edgefs.ignore(20,':');
-            edgefs>>endNode;
-            edg.endID=endNode;
+            edgefs>>end;
+            edg.endVer=_verTb[end];
 
             edgefs.ignore(20,':');
             edgefs>>edg.len;
@@ -66,7 +66,7 @@ private:
             edgefs.ignore(20,':');
             edgefs>>edg.speed;
 
-            verLs[_verTb[startNode]].edgeList.push_front(edg);
+            verLs[_verTb[start]].edgeList.push_front(edg);
 
             edgefs.ignore(1024,'\n');
         }
@@ -74,7 +74,6 @@ private:
 
 public:
     const static float MAX_DIS;
-	const static float MAX_TIM;
     int _verNum;
     vector<Vertex> _ver;
     Graph(ifstream &verfs,ifstream &edgefs):_verNum(0)
@@ -86,48 +85,43 @@ public:
     float findDisPath(int start, int end,unordered_map<int,int> &path,unordered_map<int,float> &time);
 };
 
-const float Graph::MAX_DIS=1e10;
-const float Graph::MAX_TIM = 1e10;
+const float Graph::MAX_DIS = 1e10;
+
 
 struct Node
 {
-    Vertex *ver;
-    int index;
+	Vertex * ver;
+	Node():ver(NULL)
+	{
 
-    Node(float _dis)
-    {
-        ver->dis=_dis;
-    }
+	}
+	Node(Vertex *_ver) :ver(_ver)
+	{
 
-    Node():ver(NULL)
-    {
-    }
-
+	}
     bool operator <(const Node &node)
     {
-        return this->ver->dis<node.ver->dis;
+		return this->ver->dis < node.ver->dis;
     }
 };
 
 float Graph::findDisPath(int start,int end,unordered_map<int,int> &path,unordered_map<int,float> &time)
 {
-    bool *visited=new bool[_verNum];//淇濆瓨宸茬粡鎺㈢储鍒扮殑鑺傜偣
-    Node *heapArray=new Node[_verNum];//鍫嗘搷浣滅殑鏁扮粍
-
+    bool *visited=new bool[_verNum];//保存已经探索到的节点
+	Node *heapArray = new Node[_verNum];//堆操作的数组
+	
     for(int i=0;i<_verNum;i++)
     {
-        heapArray[i].ver=&_ver[i];
-        heapArray[i].ver->dis=Graph::MAX_DIS;
-        heapArray[i].index=i;
 		visited[i] = false;
     }
 
-    int startnode=_verTb[start]    ;
-    heapArray[_verTb[start]].ver->dis=0;
+	int startNode = _verTb[start];
 
-    Heap<Node> heap(heapArray,_verNum);
+	_ver[startNode].dis = 0.0;
+    Heap<Node> heap(heapArray,0);
 
-    Node t;
+	Node t = &_ver[startNode];
+	heap.insert(t);
     float newDis;
     int endNode;
 	time[start] = 0.0;
@@ -137,15 +131,16 @@ float Graph::findDisPath(int start,int end,unordered_map<int,int> &path,unordere
        for(auto iter:t.ver->edgeList)
        {
            newDis=iter.len+t.ver->dis;
-           endNode=_verTb[iter.endID];
+           endNode=iter.endVer;
            if(visited[endNode] == false && newDis<_ver[endNode].dis)
            {
-               heap.decDis(endNode,newDis);
-               path[iter.endID]=t.ver->id;
-			   time[iter.endID] = iter.len / iter.speed + time[t.ver->id];
+			   _ver[endNode].dis = newDis;
+			   heap.insert(Node(&_ver[endNode]));
+			   path[_ver[iter.endVer].id] = t.ver->id;
+			   time[_ver[iter.endVer].id] = iter.len / iter.speed + time[t.ver->id];
            }
        }
-       visited[_verTb[t.ver->id]]=true;
+       visited[t.ver-&_ver[0]]=true;
     }
 	delete[] heapArray;
 	delete[] visited;
@@ -166,15 +161,8 @@ void printPath(int start,int end,unordered_map<int, int> & path)
 }
 
 
-int main(int argcc,char *argvv[])
+int main(int argc,char *argv[])
 {
-	int argc = 5;
-	char argv[][100] = {" ",
-		"D:\\Qt\\build\\ShortestPath\\sfo_roads.txt",
-		"D:\\Qt\\build\\ShortestPath\\sfo_nodes.txt",
-		"984478356",
-		"48531353"
-	};
 
 	if (argc != 5)
 	{
@@ -205,10 +193,16 @@ int main(int argcc,char *argvv[])
     unordered_map<int,int> path;
 	unordered_map<int, float> time;
     int start,end;
-//    cin>>start>>end;
     start=atoi(argv[3]);
     end=atoi(argv[4]);
     float minDis=map.findDisPath(start,end,path,time);
+	if (minDis == Graph::MAX_DIS)
+	{
+		cout << "Path not exist!"<<endl;
+		system("pause");
+		return 1;
+	}
+
 	cout << "Min Distance: " << minDis << endl;
 	cout << "Path node ID: ";
 	printPath(start, end, path);

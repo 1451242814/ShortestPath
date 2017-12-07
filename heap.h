@@ -3,23 +3,11 @@
 #include <algorithm>
 
 
-
 template<class T>
 class Heap {
 private:
     int len;
     T *root;
-    void decreaseDis(T *node,float dis)
-    {
-        node->ver->dis=dis;
-        T t;
-        while(node!=root && *node<*parent(node))
-        {
-            std::swap(rawTb[(*node).index],rawTb[(*parent(node)).index]);
-            std::swap(*node,*parent(node));
-            node=parent(node);
-        }
-    }
     void heapfy(T *ch)
     {
         if(ch-root==len)
@@ -30,7 +18,6 @@ private:
             less=right(ch);
         if(*less<*ch)
         {
-            std::swap(rawTb[(*less).index],rawTb[(*ch).index]);
             std::swap(*less,*ch);
             if(less-root<len/2-1)
                 heapfy(less);
@@ -46,23 +33,12 @@ private:
     }
 public:
 
-    //Using a raw table to build a map from raw index to new index on heap
-
-    int *rawTb;
-
     Heap(T* r,int n):
         len(n),root(r)
     {
-        rawTb=new int[len];
-        for(int i=0;i<n;i++)
-            rawTb[i]=i;
         build(r);
     }
 
-    ~Heap()
-    {
-        delete [] rawTb;
-    }
 
     T *right(T * ch)
     {
@@ -85,7 +61,7 @@ public:
         heapfy(root);
         return t;
     }
-    void insert(T ch)
+    void insert(const T &ch)
     {
         len++;
         root[len-1]=ch;
@@ -101,10 +77,6 @@ public:
             child=p;
             p=parent(p);
         }
-    }
-    void decDis(int index,float dis)
-    {
-        decreaseDis(&root[rawTb[index]],dis);
     }
 
     bool empty() const
